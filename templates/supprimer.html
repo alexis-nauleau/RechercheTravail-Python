@@ -1,4 +1,5 @@
-{# Page de confirmation : on ne supprime qu'après un clic sur le bouton (envoi POST). #}
+{# Page de confirmation, commune aux candidatures et aux sites : on ne supprime
+   qu'après un clic sur le bouton (envoi POST). #}
 <!doctype html>
 <html lang="fr">
 <head>
@@ -17,16 +18,16 @@
 </head>
 <body>
   <main>
-    <h1>Supprimer cette candidature ?</h1>
+    <h1>{{ titre }}</h1>
     <div class="carte">
       {# {{ ... }} neutralise le HTML : un nom piégé s'affiche tel quel, sans s'exécuter. #}
-      <p><strong>{{ candidature.entreprise }}</strong> — {{ candidature.poste }}</p>
+      <p><strong>{{ libelle }}</strong></p>
       <p>Cette action est définitive.</p>
-      <form method="post" action="{{ url_for('supprimer_candidature', identifiant=candidature.id) }}">
+      <form method="post" action="{{ action }}">
         <input type="hidden" name="csrf" value="{{ jeton_csrf() }}">
         <div class="actions">
           <button type="submit">Oui, supprimer</button>
-          <a href="{{ url_for('accueil') }}">Non, garder</a>
+          <a href="{{ retour }}">Non, garder</a>
         </div>
       </form>
     </div>

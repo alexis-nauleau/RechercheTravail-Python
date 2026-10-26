@@ -1,0 +1,72 @@
+{# Le formulaire d'un site de recherche (ajout et modification). #}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ titre }} – Recherche d'emploi</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #eef0f6; color: #333; }
+    main { max-width: 640px; margin: 0 auto; padding: 16px; }
+    form { background: white; border-radius: 12px; padding: 20px; display: grid; gap: 16px; }
+    label { display: grid; gap: 6px; font-weight: 600; font-size: 0.95rem; }
+    input { font: inherit; padding: 10px; border: 1px solid #8c8f99; border-radius: 8px;
+            min-height: 44px; box-sizing: border-box; width: 100%; }
+    .erreur { background: #fdeaea; color: #8f2d2d; padding: 10px 14px; border-radius: 8px; margin: 0; }
+    .demo { background: #fff4d6; color: #5c4400; padding: 10px 14px; border-radius: 8px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 8px; background: #1f6f5c;
+             color: white; font: inherit; font-weight: 600; cursor: pointer; }
+    a { color: #1b5fa3; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{{ titre }}</h1>
+
+    <p class="demo" role="note">Mode démo : n'utilise que de faux identifiants. Le mot de passe est
+      rangé en clair dans la base.</p>
+
+    {% if erreur %}
+      <p class="erreur" role="alert">{{ erreur }}</p>
+    {% endif %}
+
+    <form method="post" action="{{ action }}" autocomplete="off">
+      <input type="hidden" name="csrf" value="{{ jeton_csrf() }}">
+
+      <label>Nom du site
+        <input name="nom" value="{{ valeurs.nom }}" required maxlength="{{ longueurs.nom }}"
+               placeholder="Indeed">
+      </label>
+
+      <label>Adresse du site
+        <input name="lien" type="url" value="{{ valeurs.lien }}" maxlength="{{ longueurs.lien }}"
+               placeholder="https://…">
+      </label>
+
+      <label>Utilisateur
+        <input name="utilisateur" value="{{ valeurs.utilisateur }}"
+               maxlength="{{ longueurs.utilisateur }}" autocomplete="off">
+      </label>
+
+      <label>Mot de passe
+        <input class="mdp" name="mot_de_passe" type="password" value="{{ valeurs.mot_de_passe }}"
+               maxlength="{{ longueurs.mot_de_passe }}" autocomplete="new-password">
+      </label>
+
+      <div class="actions">
+        <button type="submit">{{ bouton }}</button>
+        <a href="{{ url_for('recherche') }}">Annuler</a>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    // Le mot de passe s'affiche quand le champ est actif, et se cache quand on le quitte.
+    document.querySelectorAll('input.mdp').forEach(function (champ) {
+      champ.addEventListener('focus', function () { champ.type = 'text'; });
+      champ.addEventListener('blur', function () { champ.type = 'password'; });
+    });
+  </script>
+</body>
+</html>

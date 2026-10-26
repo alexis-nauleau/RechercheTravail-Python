@@ -27,9 +27,13 @@
 </head>
 <body>
   <main>
-       <div class="entete">
+          <div class="entete">
       <h1>Dashboard recherche d'emploi</h1>
-      <a class="bouton" href="{{ url_for('nouvelle') }}">+ Ajouter une candidature</a>
+      <div>
+        <a href="{{ url_for('recherche') }}">Sites de recherche</a>
+        &nbsp;
+        <a class="bouton" href="{{ url_for('nouvelle') }}">+ Ajouter une candidature</a>
+      </div>
     </div>
 
     {# Les messages "flash" (comme « Candidature ajoutée. ») s'affichent une seule fois. #}
