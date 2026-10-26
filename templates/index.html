@@ -49,7 +49,7 @@
       <div class="tableau">
         <table>
           <thead>
-            <tr><th>Entreprise</th><th>Poste</th><th>Technologies</th><th>Statut</th><th>Date</th><th>Lien</th><th>Notes</th></tr>
+            <tr><th>Entreprise</th><th>Poste</th><th>Technologies</th><th>Statut</th><th>Date</th><th>Lien</th><th>Notes</th><th>Actions</th></tr></tr>
           </thead>
           <tbody>
             {% for c in candidatures %}
@@ -72,6 +72,13 @@
                   {% endif %}
                 </td>
                 <td class="notes">{{ c.notes or '' }}</td>
+                                <td>
+                  <a href="{{ url_for('modifier_candidature', identifiant=c.id) }}"
+                     aria-label="Modifier {{ c.entreprise }}">Modifier</a>
+                  ·
+                  <a href="{{ url_for('supprimer_candidature', identifiant=c.id) }}"
+                     aria-label="Supprimer {{ c.entreprise }}">Supprimer</a>
+                </td>
               </tr>
             {% endfor %}
           </tbody>

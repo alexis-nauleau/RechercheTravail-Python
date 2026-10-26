@@ -8,7 +8,8 @@ from flask import (Flask, abort, flash, redirect, render_template, request, sess
                    url_for)
 
 import db
-from candidatures import LONGUEUR_MAX, ajouter, lister, separer_technologies
+from candidatures import (LONGUEUR_MAX, ajouter, lister, modifier, obtenir,
+                          separer_technologies, supprimer)
 
 # Les champs du formulaire, dans l'ordre. On ne lit QUE ceux-là dans ce que le
 # navigateur envoie : un champ en plus, glissé par quelqu'un, est ignoré.
@@ -86,6 +87,45 @@ def create_app(config=None):
     # Rend jeton_csrf() utilisable dans toutes les pages : {{ jeton_csrf() }}
     app.jinja_env.globals["jeton_csrf"] = jeton_csrf
 
+    # ---- Le formulaire, commun à "nouvelle" et "modifier" ----
+    def formulaire(titre, action, bouton, valeurs, enregistrer, message):
+        """Affiche le formulaire (GET) ou traite son envoi (POST).
+
+        valeurs     : ce qu'on met dans les champs au départ
+        enregistrer : la fonction à appeler avec les valeurs reçues (ajout ou modification)
+        message     : le texte affiché après un succès
+        """
+        erreur = None
+        if request.method == "POST":
+            # 1) Le jeton d'abord : sans lui, on ne regarde même pas le reste.
+            if not jeton_valide():
+                abort(400)  # 400 = "requête incorrecte"
+            # 2) On relit les champs (le texte reçu, tel quel) pour pouvoir les réafficher.
+            valeurs = {nom: request.form.get(nom, "") for nom in CHAMPS}
+            try:
+                enregistrer(valeurs)
+            except ValueError as probleme:
+                erreur = str(probleme)  # le message écrit dans candidatures.py
+            else:
+                # flash : un message affiché UNE fois, sur la page suivante
+                flash(message)
+                # 303 : "va voir cette autre page" (évite de renvoyer le formulaire
+                # si on actualise la page)
+                return redirect(url_for("accueil"), code=303)
+
+        page = render_template(
+            "formulaire.html",
+            titre=titre,
+            action=action,
+            bouton=bouton,
+            valeurs=valeurs,
+            erreur=erreur,
+            statuts=db.STATUTS,
+            longueurs=LONGUEUR_MAX,
+        )
+        # En cas d'erreur de saisie, on répond 400 ; sinon 200 (le défaut).
+        return (page, 400) if erreur else page
+
     @app.get("/")
     def accueil():
         # request.args lit ce qui suit le "?" dans l'adresse : /?statut=postule
@@ -104,39 +144,52 @@ def create_app(config=None):
     # et POST (recevoir ce qui a été rempli).
     @app.route("/nouvelle", methods=["GET", "POST"])
     def nouvelle():
-        # Valeurs de départ du formulaire : vides, sauf un statut et la date du jour.
+        # Valeurs de départ : vides, sauf un statut et la date du jour.
         valeurs = {nom: "" for nom in CHAMPS}
         valeurs["statut"] = "postule"
         valeurs["date_candidature"] = date.today().isoformat()
-        erreur = None
-
-        if request.method == "POST":
-            # 1) Le jeton d'abord : sans lui, on ne regarde même pas le reste.
-            if not jeton_valide():
-                abort(400)  # 400 = "requête incorrecte"
-            # 2) On relit les champs (le texte reçu, tel quel) pour pouvoir les réafficher.
-            valeurs = {nom: request.form.get(nom, "") for nom in CHAMPS}
-            try:
-                # **valeurs : "déballe" le dictionnaire en ajouter(entreprise=..., poste=...)
-                ajouter(**valeurs)
-            except ValueError as probleme:
-                erreur = str(probleme)  # le message écrit dans candidatures.py
-            else:
-                # flash : un message affiché UNE fois, sur la page suivante
-                flash("Candidature ajoutée.")
-                # 303 : "va voir cette autre page" (évite de renvoyer le formulaire
-                # si on actualise la page)
-                return redirect(url_for("accueil"), code=303)
-
-        page = render_template(
-            "nouvelle.html",
+        return formulaire(
+            titre="Nouvelle candidature",
+            action=url_for("nouvelle"),
+            bouton="Enregistrer",
             valeurs=valeurs,
-            erreur=erreur,
-            statuts=db.STATUTS,
-            longueurs=LONGUEUR_MAX,
+            # lambda : une mini-fonction écrite sur une ligne. Ici : "reçois v,
+            # appelle ajouter(**v)" (** déballe le dictionnaire en paramètres nommés).
+            enregistrer=lambda v: ajouter(**v),
+            message="Candidature ajoutée.",
         )
-        # En cas d'erreur de saisie, on répond 400 ; sinon 200 (le défaut).
-        return (page, 400) if erreur else page
+
+    # <int:identifiant> : la partie de l'adresse est lue comme un nombre entier.
+    # /candidature/abc/modifier donne donc directement une erreur 404.
+    @app.route("/candidature/<int:identifiant>/modifier", methods=["GET", "POST"])
+    def modifier_candidature(identifiant):
+        ligne = obtenir(identifiant)
+        if ligne is None:
+            abort(404)  # 404 = "page introuvable"
+        # On préremplit avec ce qui est en base ("or ''" : None devient un champ vide).
+        valeurs = {nom: ligne[nom] or "" for nom in CHAMPS}
+        return formulaire(
+            titre="Modifier la candidature",
+            action=url_for("modifier_candidature", identifiant=identifiant),
+            bouton="Enregistrer les modifications",
+            valeurs=valeurs,
+            enregistrer=lambda v: modifier(identifiant, **v),
+            message="Candidature modifiée.",
+        )
+
+    @app.route("/candidature/<int:identifiant>/supprimer", methods=["GET", "POST"])
+    def supprimer_candidature(identifiant):
+        ligne = obtenir(identifiant)
+        if ligne is None:
+            abort(404)
+        if request.method == "POST":
+            if not jeton_valide():
+                abort(400)
+            supprimer(identifiant)
+            flash("Candidature supprimée.")
+            return redirect(url_for("accueil"), code=303)
+        # GET : on ne supprime RIEN, on demande seulement confirmation.
+        return render_template("supprimer.html", candidature=ligne)
 
     # Une commande de terminal : python -m flask --app app seed
     @app.cli.command("seed")

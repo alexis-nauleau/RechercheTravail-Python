@@ -154,30 +154,76 @@ def lister(statut=None):
         f"SELECT {_COLONNES} FROM candidatures WHERE statut = ? {_ORDRE}", (statut,)
     ).fetchall()
 
+def _valider(entreprise, poste, lien, statut, date_candidature, notes, technologies):
+    """Vérifie TOUS les champs et renvoie les valeurs propres, dans un dictionnaire.
+
+    Utilisée par ajouter() ET par modifier() : les règles sont écrites une seule fois.
+    Lève ValueError dès qu'un champ est invalide.
+    """
+    valeurs = {
+        "entreprise": _texte(entreprise, "entreprise", obligatoire=True),
+        "poste": _texte(poste, "poste", obligatoire=True),
+        "technologies": _technologies(technologies),
+        "lien": _lien(lien),
+        "notes": _texte(notes, "notes"),
+        "date_candidature": _date(date_candidature),
+        "statut": statut,
+    }
+    # "statut not in STATUTS" : le statut doit être l'une des clés du dictionnaire
+    if statut not in STATUTS:
+        raise ValueError("Statut inconnu.")
+    return valeurs
+
 
 def ajouter(entreprise, poste, lien=None, statut="a_postuler", date_candidature=None,
             notes=None, technologies=None):
     """Valide puis enregistre une candidature. Lève ValueError si un champ est invalide."""
-    # On vérifie CHAQUE champ avant d'écrire quoi que ce soit en base.
-    # Si l'un d'eux est invalide, une ValueError est levée et on ne va pas plus loin.
-    entreprise = _texte(entreprise, "entreprise", obligatoire=True)
-    poste = _texte(poste, "poste", obligatoire=True)
-    technologies = _technologies(technologies)
-    lien = _lien(lien)
-    notes = _texte(notes, "notes")
-    date_candidature = _date(date_candidature)
-    # "statut not in STATUTS" : le statut doit être l'une des clés du dictionnaire
-    if statut not in STATUTS:
-        raise ValueError("Statut inconnu.")
-
+    valeurs = _valider(entreprise, poste, lien, statut, date_candidature, notes,
+                       technologies)
     connexion = get_db()
-    # Les sept "?" sont remplis, dans l'ordre, par les sept valeurs du tuple.
-    # Aucune valeur n'est collée dans le texte SQL : c'est ce qui empêche l'injection SQL.
+    # Les ":nom" sont remplis par le dictionnaire de même nom. Comme avec les "?",
+    # aucune valeur n'est collée dans le texte SQL : pas d'injection possible.
     curseur = connexion.execute(
         "INSERT INTO candidatures"
         " (entreprise, poste, technologies, lien, statut, date_candidature, notes)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (entreprise, poste, technologies, lien, statut, date_candidature, notes),
+        " VALUES (:entreprise, :poste, :technologies, :lien, :statut,"
+        " :date_candidature, :notes)",
+        valeurs,
     )
     connexion.commit()  # sans commit, l'ajout est perdu à la fermeture de la connexion
     return curseur.lastrowid  # l'identifiant de la ligne qui vient d'être créée
+
+
+def obtenir(identifiant):
+    """Renvoie UNE candidature (par son id), ou None si elle n'existe pas."""
+    return get_db().execute(
+        f"SELECT {_COLONNES} FROM candidatures WHERE id = ?", (identifiant,)
+    ).fetchone()  # fetchone : une seule ligne (ou None)
+
+
+def modifier(identifiant, entreprise, poste, lien=None, statut="a_postuler",
+             date_candidature=None, notes=None, technologies=None):
+    """Valide puis met à jour une candidature existante. Lève ValueError sinon."""
+    valeurs = _valider(entreprise, poste, lien, statut, date_candidature, notes,
+                       technologies)
+    valeurs["id"] = identifiant  # ajoute l'id au dictionnaire, pour le ":id" ci-dessous
+    connexion = get_db()
+    curseur = connexion.execute(
+        "UPDATE candidatures SET entreprise = :entreprise, poste = :poste,"
+        " technologies = :technologies, lien = :lien, statut = :statut,"
+        " date_candidature = :date_candidature, notes = :notes"
+        " WHERE id = :id",
+        valeurs,
+    )
+    connexion.commit()
+    # rowcount = nombre de lignes touchées. 0 : l'id n'existe pas (ou plus).
+    if curseur.rowcount == 0:
+        raise ValueError("Cette candidature n'existe plus.")
+
+
+def supprimer(identifiant):
+    """Supprime une candidature. Renvoie True si elle existait, False sinon."""
+    connexion = get_db()
+    curseur = connexion.execute("DELETE FROM candidatures WHERE id = ?", (identifiant,))
+    connexion.commit()
+    return curseur.rowcount > 0

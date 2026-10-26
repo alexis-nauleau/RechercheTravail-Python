@@ -1,10 +1,10 @@
-{# Le formulaire d'ajout d'une candidature. #}
+{# Le formulaire, utilisé pour AJOUTER et pour MODIFIER une candidature. #}
 <!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Nouvelle candidature – Recherche d'emploi</title>
+  <title>{{ titre }} – Recherche d'emploi</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 0; background: #eef0f6; color: #333; }
     main { max-width: 640px; margin: 0 auto; padding: 16px; }
@@ -23,14 +23,14 @@
 </head>
 <body>
   <main>
-    <h1>Nouvelle candidature</h1>
+    <h1>{{ titre }}</h1>
 
-    {# Si ajouter() a refusé quelque chose, son message s'affiche ici. #}
+    {# Si la validation a refusé quelque chose, son message s'affiche ici. #}
     {% if erreur %}
       <p class="erreur" role="alert">{{ erreur }}</p>
     {% endif %}
 
-    <form method="post" action="{{ url_for('nouvelle') }}">
+    <form method="post" action="{{ action }}">
       {# Le jeton anti-CSRF : caché, mais envoyé avec le formulaire. #}
       <input type="hidden" name="csrf" value="{{ jeton_csrf() }}">
 
@@ -70,7 +70,7 @@
       </label>
 
       <div class="actions">
-        <button type="submit">Enregistrer</button>
+        <button type="submit">{{ bouton }}</button>
         <a href="{{ url_for('accueil') }}">Annuler</a>
       </div>
     </form>
