@@ -1,0 +1,95 @@
+{# La liste des sites de recherche d'emploi. #}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sites de recherche – Recherche d'emploi</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #eef0f6; color: #333; }
+    main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .entete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .bouton { display: inline-block; padding: 10px 18px; border-radius: 8px; background: #1f6f5c;
+              color: white; text-decoration: none; font-weight: 600; }
+    .message { background: #e3f0ec; color: #17503f; padding: 10px 14px; border-radius: 8px; }
+    .demo { background: #fff4d6; color: #5c4400; padding: 10px 14px; border-radius: 8px; }
+    .tableau { overflow-x: auto; background: white; border-radius: 12px; padding: 8px 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #f0f1f6; vertical-align: middle; }
+    input.mdp { font: inherit; padding: 6px 10px; border: 1px solid #8c8f99; border-radius: 8px;
+                min-height: 36px; box-sizing: border-box; width: 100%; max-width: 240px; background: #fafafa; }
+    a { color: #1b5fa3; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="entete">
+      <h1>Sites de recherche d'emploi</h1>
+      <div>
+        <a href="{{ url_for('accueil') }}">← Mes candidatures</a>
+        &nbsp;
+        <a class="bouton" href="{{ url_for('nouveau_site') }}">+ Ajouter un site</a>
+      </div>
+    </div>
+
+    <p class="demo" role="note">Mode démo : n'enregistre ici que de faux identifiants. Les mots de
+      passe sont rangés en clair dans la base.</p>
+
+    {% for message in get_flashed_messages() %}
+      <p class="message" role="status">{{ message }}</p>
+    {% endfor %}
+
+    {% if sites %}
+      <div class="tableau">
+        <table>
+          <thead>
+            <tr><th>Site</th><th>Utilisateur</th><th>Mot de passe</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {% for s in sites %}
+              <tr>
+                <td>
+                  {# Double sécurité : on ne crée un lien que pour une adresse http(s). #}
+                  {% if s.lien and s.lien.lower().startswith(('http://', 'https://')) %}
+                    <a href="{{ s.lien }}" target="_blank" rel="noopener noreferrer">{{ s.nom }}</a>
+                  {% else %}
+                    {{ s.nom }}
+                  {% endif %}
+                </td>
+                <td>{{ s.utilisateur or '' }}</td>
+                <td>
+                  {% if s.mot_de_passe %}
+                    {# readonly : on ne peut pas le modifier ici, mais le champ reste utilisable au clavier. #}
+                    <input class="mdp" type="password" readonly value="{{ s.mot_de_passe }}"
+                           aria-label="Mot de passe {{ s.nom }}">
+                  {% else %}—{% endif %}
+                </td>
+                <td>
+                  <a href="{{ url_for('modifier_site', identifiant=s.id) }}"
+                     aria-label="Modifier {{ s.nom }}">Modifier</a>
+                  ·
+                  <a href="{{ url_for('supprimer_site', identifiant=s.id) }}"
+                     aria-label="Supprimer {{ s.nom }}">Supprimer</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p>Clique dans un champ « mot de passe » pour l'afficher : il est sélectionné, tu peux le copier
+        avec Ctrl+C. Il se cache dès que tu quittes le champ.</p>
+    {% else %}
+      <p>Aucun site enregistré.</p>
+    {% endif %}
+  </main>
+
+  <script>
+    // Au clic dans un champ : on affiche le mot de passe et on le sélectionne.
+    // Quand on quitte le champ : on le cache de nouveau.
+    document.querySelectorAll('input.mdp').forEach(function (champ) {
+      champ.addEventListener('focus', function () { champ.type = 'text'; champ.select(); });
+      champ.addEventListener('blur', function () { champ.type = 'password'; });
+    });
+  </script>
+</body>
+</html>

@@ -39,6 +39,15 @@ CREATE TABLE IF NOT EXISTS candidatures (
     notes TEXT,
     cree_le TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS sites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT NOT NULL,
+    lien TEXT,
+    utilisateur TEXT,
+    mot_de_passe TEXT,
+    cree_le TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 

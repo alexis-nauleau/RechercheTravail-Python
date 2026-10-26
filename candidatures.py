@@ -34,7 +34,7 @@ _COLONNES = "id, entreprise, poste, technologies, lien, statut, date_candidature
 _ORDRE = "ORDER BY COALESCE(date_candidature, substr(cree_le, 1, 10)) DESC, id DESC"
 
 
-def _texte(valeur, nom, obligatoire=False):
+def _texte(valeur, nom, obligatoire=False, maximum=None):
     """Nettoie un champ texte. Renvoie None si le champ est vide et facultatif.
 
     Le "_" devant le nom est une convention : "cette fonction est réservée à ce fichier,
@@ -49,9 +49,10 @@ def _texte(valeur, nom, obligatoire=False):
     texte = (valeur or "").strip()
     if obligatoire and not texte:
         raise ValueError(f"Le champ « {nom} » est obligatoire.")
-    if len(texte) > LONGUEUR_MAX[nom]:
-        raise ValueError(f"Le champ « {nom} » dépasse {LONGUEUR_MAX[nom]} caractères.")
-    # "texte or None" : un texte vide devient None (rien), sinon on garde le texte
+    # "maximum" permet à un autre fichier (sites.py) de fixer sa propre limite.
+    limite = LONGUEUR_MAX[nom] if maximum is None else maximum
+    if len(texte) > limite:
+        raise ValueError(f"Le champ « {nom} » dépasse {limite} caractères.")
     return texte or None
 
 

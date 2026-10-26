@@ -6,3 +6,6 @@ __pycache__/
 *.sqlite3
 data/
 instance/
+build/
+dist/
+*.spec
