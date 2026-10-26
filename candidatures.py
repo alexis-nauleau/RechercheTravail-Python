@@ -1,7 +1,8 @@
 """Validation et accès aux candidatures.
 
 Ce fichier contient trois choses :
-  - des fonctions qui VÉRIFIENT ce qu'on veut enregistrer (_texte, _lien, _date) ;
+  - des fonctions qui VÉRIFIENT ce qu'on veut enregistrer (_texte, _lien, _date,
+    _technologies) ;
   - une fonction qui LIT les candidatures (lister) ;
   - une fonction qui ENREGISTRE une candidature (ajouter).
 Le reste de l'application n'a jamais besoin de connaître le SQL : elle passe par ici.
@@ -16,10 +17,15 @@ from db import STATUTS, get_db
 
 # Longueurs maximales de chaque champ texte. Sans limite, quelqu'un pourrait enregistrer
 # un texte énorme. Les accolades { } forment un "dictionnaire" : des paires nom -> valeur.
-LONGUEUR_MAX = {"entreprise": 100, "poste": 150, "lien": 500, "notes": 2000}
+LONGUEUR_MAX = {"entreprise": 100, "poste": 150, "technologies": 500, "lien": 500,
+                "notes": 2000}
+
+# Pour les technologies : combien au maximum, et quelle longueur pour chacune.
+MAX_TECHNOLOGIES = 10
+LONGUEUR_TECHNOLOGIE = 30
 
 # Les colonnes qu'on lit dans la table.
-_COLONNES = "id, entreprise, poste, lien, statut, date_candidature, notes"
+_COLONNES = "id, entreprise, poste, technologies, lien, statut, date_candidature, notes"
 # L'ordre d'affichage : les plus récentes d'abord.
 # COALESCE prend la première valeur non vide : la date de candidature si elle existe,
 # sinon la date de création de la ligne (substr garde les 10 premiers caractères,
@@ -47,6 +53,51 @@ def _texte(valeur, nom, obligatoire=False):
         raise ValueError(f"Le champ « {nom} » dépasse {LONGUEUR_MAX[nom]} caractères.")
     # "texte or None" : un texte vide devient None (rien), sinon on garde le texte
     return texte or None
+
+
+def _technologies(valeur):
+    """Nettoie une liste de technologies écrite "Python, Flask, SQL".
+
+    On la découpe aux virgules, on enlève les espaces et les vides, on supprime les
+    doublons (sans tenir compte des majuscules), puis on la recolle proprement.
+    """
+    # _texte vérifie déjà le type et la longueur totale du champ.
+    texte = _texte(valeur, "technologies")
+    if texte is None:
+        return None
+
+    # Une "liste" Python se note avec des crochets. On la remplit technologie par technologie.
+    gardees = []
+    deja_vues = set()  # un "set" retient des éléments sans doublon, très rapide à interroger
+    for morceau in texte.split(","):  # .split(",") coupe le texte à chaque virgule
+        techno = morceau.strip()
+        if not techno:  # "Python,,SQL" : le morceau vide est simplement ignoré
+            continue
+        if len(techno) > LONGUEUR_TECHNOLOGIE:
+            raise ValueError(
+                f"Une technologie dépasse {LONGUEUR_TECHNOLOGIE} caractères."
+            )
+        # casefold() met en minuscules : "python" et "Python" comptent pour un seul.
+        cle = techno.casefold()
+        if cle not in deja_vues:
+            deja_vues.add(cle)
+            gardees.append(techno)
+
+    if len(gardees) > MAX_TECHNOLOGIES:
+        raise ValueError(f"Au maximum {MAX_TECHNOLOGIES} technologies.")
+    # ", ".join(liste) recolle les éléments avec ", " entre chacun. Vide -> None.
+    return ", ".join(gardees) or None
+
+
+def separer_technologies(texte):
+    """Transforme "Python, Flask" (rangé en base) en liste ["Python", "Flask"].
+
+    Sert à l'affichage : une pastille par technologie.
+    """
+    if not texte:
+        return []
+    # Compréhension de liste : "pour chaque morceau du texte coupé, garde-le s'il n'est pas vide"
+    return [morceau.strip() for morceau in texte.split(",") if morceau.strip()]
 
 
 def _lien(valeur):
@@ -103,28 +154,76 @@ def lister(statut=None):
         f"SELECT {_COLONNES} FROM candidatures WHERE statut = ? {_ORDRE}", (statut,)
     ).fetchall()
 
+def _valider(entreprise, poste, lien, statut, date_candidature, notes, technologies):
+    """Vérifie TOUS les champs et renvoie les valeurs propres, dans un dictionnaire.
 
-def ajouter(entreprise, poste, lien=None, statut="a_postuler", date_candidature=None,
-            notes=None):
-    """Valide puis enregistre une candidature. Lève ValueError si un champ est invalide."""
-    # On vérifie CHAQUE champ avant d'écrire quoi que ce soit en base.
-    # Si l'un d'eux est invalide, une ValueError est levée et on ne va pas plus loin.
-    entreprise = _texte(entreprise, "entreprise", obligatoire=True)
-    poste = _texte(poste, "poste", obligatoire=True)
-    lien = _lien(lien)
-    notes = _texte(notes, "notes")
-    date_candidature = _date(date_candidature)
+    Utilisée par ajouter() ET par modifier() : les règles sont écrites une seule fois.
+    Lève ValueError dès qu'un champ est invalide.
+    """
+    valeurs = {
+        "entreprise": _texte(entreprise, "entreprise", obligatoire=True),
+        "poste": _texte(poste, "poste", obligatoire=True),
+        "technologies": _technologies(technologies),
+        "lien": _lien(lien),
+        "notes": _texte(notes, "notes"),
+        "date_candidature": _date(date_candidature),
+        "statut": statut,
+    }
     # "statut not in STATUTS" : le statut doit être l'une des clés du dictionnaire
     if statut not in STATUTS:
         raise ValueError("Statut inconnu.")
+    return valeurs
 
+
+def ajouter(entreprise, poste, lien=None, statut="a_postuler", date_candidature=None,
+            notes=None, technologies=None):
+    """Valide puis enregistre une candidature. Lève ValueError si un champ est invalide."""
+    valeurs = _valider(entreprise, poste, lien, statut, date_candidature, notes,
+                       technologies)
     connexion = get_db()
-    # Les six "?" sont remplis, dans l'ordre, par les six valeurs du tuple.
-    # Aucune valeur n'est collée dans le texte SQL : c'est ce qui empêche l'injection SQL.
+    # Les ":nom" sont remplis par le dictionnaire de même nom. Comme avec les "?",
+    # aucune valeur n'est collée dans le texte SQL : pas d'injection possible.
     curseur = connexion.execute(
-        "INSERT INTO candidatures (entreprise, poste, lien, statut, date_candidature, notes)"
-        " VALUES (?, ?, ?, ?, ?, ?)",
-        (entreprise, poste, lien, statut, date_candidature, notes),
+        "INSERT INTO candidatures"
+        " (entreprise, poste, technologies, lien, statut, date_candidature, notes)"
+        " VALUES (:entreprise, :poste, :technologies, :lien, :statut,"
+        " :date_candidature, :notes)",
+        valeurs,
     )
     connexion.commit()  # sans commit, l'ajout est perdu à la fermeture de la connexion
     return curseur.lastrowid  # l'identifiant de la ligne qui vient d'être créée
+
+
+def obtenir(identifiant):
+    """Renvoie UNE candidature (par son id), ou None si elle n'existe pas."""
+    return get_db().execute(
+        f"SELECT {_COLONNES} FROM candidatures WHERE id = ?", (identifiant,)
+    ).fetchone()  # fetchone : une seule ligne (ou None)
+
+
+def modifier(identifiant, entreprise, poste, lien=None, statut="a_postuler",
+             date_candidature=None, notes=None, technologies=None):
+    """Valide puis met à jour une candidature existante. Lève ValueError sinon."""
+    valeurs = _valider(entreprise, poste, lien, statut, date_candidature, notes,
+                       technologies)
+    valeurs["id"] = identifiant  # ajoute l'id au dictionnaire, pour le ":id" ci-dessous
+    connexion = get_db()
+    curseur = connexion.execute(
+        "UPDATE candidatures SET entreprise = :entreprise, poste = :poste,"
+        " technologies = :technologies, lien = :lien, statut = :statut,"
+        " date_candidature = :date_candidature, notes = :notes"
+        " WHERE id = :id",
+        valeurs,
+    )
+    connexion.commit()
+    # rowcount = nombre de lignes touchées. 0 : l'id n'existe pas (ou plus).
+    if curseur.rowcount == 0:
+        raise ValueError("Cette candidature n'existe plus.")
+
+
+def supprimer(identifiant):
+    """Supprime une candidature. Renvoie True si elle existait, False sinon."""
+    connexion = get_db()
+    curseur = connexion.execute("DELETE FROM candidatures WHERE id = ?", (identifiant,))
+    connexion.commit()
+    return curseur.rowcount > 0

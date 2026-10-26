@@ -1,0 +1,35 @@
+{# Page de confirmation : on ne supprime qu'après un clic sur le bouton (envoi POST). #}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Supprimer – Recherche d'emploi</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #eef0f6; color: #333; }
+    main { max-width: 640px; margin: 0 auto; padding: 16px; }
+    .carte { background: white; border-radius: 12px; padding: 20px; display: grid; gap: 16px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 8px; background: #8f2d2d;
+             color: white; font: inherit; font-weight: 600; cursor: pointer; }
+    a { color: #1b5fa3; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Supprimer cette candidature ?</h1>
+    <div class="carte">
+      {# {{ ... }} neutralise le HTML : un nom piégé s'affiche tel quel, sans s'exécuter. #}
+      <p><strong>{{ candidature.entreprise }}</strong> — {{ candidature.poste }}</p>
+      <p>Cette action est définitive.</p>
+      <form method="post" action="{{ url_for('supprimer_candidature', identifiant=candidature.id) }}">
+        <input type="hidden" name="csrf" value="{{ jeton_csrf() }}">
+        <div class="actions">
+          <button type="submit">Oui, supprimer</button>
+          <a href="{{ url_for('accueil') }}">Non, garder</a>
+        </div>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

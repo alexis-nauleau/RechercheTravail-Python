@@ -24,12 +24,15 @@ _STATUTS_SQL = ", ".join(f"'{code}'" for code in STATUTS)
 #                               même si le code Python avait un défaut
 #   dates                     : SQLite n'a pas de vrai type "date" ; on range du texte
 #                               au format AAAA-MM-JJ
+#   technologies              : un seul texte, les technos séparées par des virgules
+#                               ("Python, Flask, SQL"). Simple, et suffisant ici.
 #   IF NOT EXISTS             : relancer ne recrée pas la table et n'efface rien
 SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS candidatures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     entreprise TEXT NOT NULL,
     poste TEXT NOT NULL,
+    technologies TEXT,
     lien TEXT,
     statut TEXT NOT NULL DEFAULT 'a_postuler' CHECK (statut IN ({_STATUTS_SQL})),
     date_candidature TEXT,

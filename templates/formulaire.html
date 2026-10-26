@@ -1,0 +1,79 @@
+{# Le formulaire, utilisé pour AJOUTER et pour MODIFIER une candidature. #}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ titre }} – Recherche d'emploi</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #eef0f6; color: #333; }
+    main { max-width: 640px; margin: 0 auto; padding: 16px; }
+    form { background: white; border-radius: 12px; padding: 20px; display: grid; gap: 16px; }
+    label { display: grid; gap: 6px; font-weight: 600; font-size: 0.95rem; }
+    .aide { font-weight: 400; font-size: 0.85rem; color: #555; }
+    input, select, textarea { font: inherit; padding: 10px; border: 1px solid #8c8f99;
+                              border-radius: 8px; min-height: 44px; box-sizing: border-box; width: 100%; }
+    textarea { min-height: 100px; }
+    .erreur { background: #fdeaea; color: #8f2d2d; padding: 10px 14px; border-radius: 8px; margin: 0; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 8px; background: #1f6f5c;
+             color: white; font: inherit; font-weight: 600; cursor: pointer; }
+    a { color: #1b5fa3; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{{ titre }}</h1>
+
+    {# Si la validation a refusé quelque chose, son message s'affiche ici. #}
+    {% if erreur %}
+      <p class="erreur" role="alert">{{ erreur }}</p>
+    {% endif %}
+
+    <form method="post" action="{{ action }}">
+      {# Le jeton anti-CSRF : caché, mais envoyé avec le formulaire. #}
+      <input type="hidden" name="csrf" value="{{ jeton_csrf() }}">
+
+      <label>Entreprise
+        <input name="entreprise" value="{{ valeurs.entreprise }}" required maxlength="{{ longueurs.entreprise }}">
+      </label>
+
+      <label>Poste
+        <input name="poste" value="{{ valeurs.poste }}" required maxlength="{{ longueurs.poste }}">
+      </label>
+
+      <label>Technologies demandées
+        <input name="technologies" value="{{ valeurs.technologies }}" maxlength="{{ longueurs.technologies }}"
+               placeholder="Python, Flask, SQL">
+        <span class="aide">Sépare-les par des virgules (10 au maximum).</span>
+      </label>
+
+      <label>Lien de l'offre
+        <input name="lien" type="url" value="{{ valeurs.lien }}" maxlength="{{ longueurs.lien }}"
+               placeholder="https://…">
+      </label>
+
+      <label>Statut
+        <select name="statut">
+          {% for code, libelle in statuts.items() %}
+            <option value="{{ code }}" {{ 'selected' if valeurs.statut == code }}>{{ libelle }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Date de candidature
+        <input name="date_candidature" type="date" value="{{ valeurs.date_candidature }}">
+      </label>
+
+      <label>Notes
+        <textarea name="notes" maxlength="{{ longueurs.notes }}">{{ valeurs.notes }}</textarea>
+      </label>
+
+      <div class="actions">
+        <button type="submit">{{ bouton }}</button>
+        <a href="{{ url_for('accueil') }}">Annuler</a>
+      </div>
+    </form>
+  </main>
+</body>
+</html>
