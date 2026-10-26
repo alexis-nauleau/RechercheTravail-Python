@@ -16,13 +16,26 @@
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #f0f1f6; vertical-align: top; }
     td.notes { white-space: pre-wrap; max-width: 260px; }
     /* Une pastille par technologie */
+    .entete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .bouton { display: inline-block; padding: 10px 18px; border-radius: 8px; background: #1f6f5c;
+              color: white; text-decoration: none; font-weight: 600; }
+    .message { background: #e3f0ec; color: #17503f; padding: 10px 14px; border-radius: 8px; }
     .pastille { display: inline-block; margin: 0 4px 4px 0; padding: 2px 10px; border-radius: 999px;
                 background: #e3f0ec; color: #17503f; font-size: 0.85rem; font-weight: 500; }
+
   </style>
 </head>
 <body>
   <main>
-    <h1>Dashboard recherche d'emploi</h1>
+       <div class="entete">
+      <h1>Dashboard recherche d'emploi</h1>
+      <a class="bouton" href="{{ url_for('nouvelle') }}">+ Ajouter une candidature</a>
+    </div>
+
+    {# Les messages "flash" (comme « Candidature ajoutée. ») s'affichent une seule fois. #}
+    {% for message in get_flashed_messages() %}
+      <p class="message" role="status">{{ message }}</p>
+    {% endfor %}
 
     {# Les filtres. url_for('accueil', statut=code) fabrique l'adresse /?statut=code #}
     <nav>

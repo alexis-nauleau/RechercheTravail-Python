@@ -15,7 +15,9 @@ class BaseTest(unittest.TestCase):
         self.app = create_app({
             "DATABASE": os.path.join(self.dossier.name, "test.db"),
             "TESTING": True,
+            "SECRET_KEY": "cle-de-test",
         })
+        
         self.client = self.app.test_client()
 
     def tearDown(self):
