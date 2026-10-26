@@ -7,7 +7,7 @@
   <title>Dashboard – Recherche d'emploi</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 0; background: #eef0f6; color: #333; }
-    main { max-width: 900px; margin: 0 auto; padding: 16px; }
+    main { max-width: 1100px; margin: 0 auto; padding: 16px; }
     nav a { display: inline-block; margin: 0 6px 8px 0; padding: 6px 12px; border-radius: 999px;
             background: white; color: #333; text-decoration: none; border: 1px solid #dde0ea; }
     nav a.actif { background: #4db5ff; color: white; border-color: #4db5ff; }
@@ -15,6 +15,9 @@
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #f0f1f6; vertical-align: top; }
     td.notes { white-space: pre-wrap; max-width: 260px; }
+    /* Une pastille par technologie */
+    .pastille { display: inline-block; margin: 0 4px 4px 0; padding: 2px 10px; border-radius: 999px;
+                background: #e3f0ec; color: #17503f; font-size: 0.85rem; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -33,7 +36,7 @@
       <div class="tableau">
         <table>
           <thead>
-            <tr><th>Entreprise</th><th>Poste</th><th>Statut</th><th>Date</th><th>Lien</th><th>Notes</th></tr>
+            <tr><th>Entreprise</th><th>Poste</th><th>Technologies</th><th>Statut</th><th>Date</th><th>Lien</th><th>Notes</th></tr>
           </thead>
           <tbody>
             {% for c in candidatures %}
@@ -41,6 +44,12 @@
                 {# {{ ... }} neutralise automatiquement le HTML : "<b>" s'affiche tel quel #}
                 <td>{{ c.entreprise }}</td>
                 <td>{{ c.poste }}</td>
+                <td>
+                  {# Le filtre "techs" coupe le texte en liste : une pastille par technologie #}
+                  {% for techno in c.technologies | techs %}
+                    <span class="pastille">{{ techno }}</span>
+                  {% endfor %}
+                </td>
                 <td>{{ statuts[c.statut] }}</td>
                 <td>{{ c.date_candidature or '' }}</td>
                 <td>

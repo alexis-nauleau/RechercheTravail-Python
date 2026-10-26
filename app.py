@@ -4,7 +4,7 @@ import os
 from flask import Flask, render_template, request
 
 import db
-from candidatures import ajouter, lister
+from candidatures import ajouter, lister, separer_technologies
 
 
 def create_app(config=None):
@@ -31,6 +31,10 @@ def create_app(config=None):
     with app.app_context():
         db.init_db()
 
+    # Un "filtre" Jinja : dans la page, {{ texte | techs }} appelle cette fonction.
+    # Elle transforme "Python, Flask" en liste ["Python", "Flask"] pour faire des pastilles.
+    app.add_template_filter(separer_technologies, "techs")
+
     @app.get("/")
     def accueil():
         # request.args lit ce qui suit le "?" dans l'adresse : /?statut=postule
@@ -52,17 +56,26 @@ def create_app(config=None):
         if lister():
             print("La table contient déjà des données : rien n'a été ajouté.")
             return
+        # Chaque exemple est un dictionnaire : nom du paramètre -> valeur.
         exemples = [
-            ("Entreprise Exemple A", "Développeur web", "https://example.com/offre-1",
-             "postule", "2026-10-20", "Donnée fictive."),
-            ("Entreprise Exemple B", "Développeur Python", "https://example.com/offre-2",
-             "entretien", "2026-10-22", "Donnée fictive. Entretien à préparer."),
-            ("Entreprise Exemple C", "Intégrateur", None, "a_postuler", None, None),
-            ("Entreprise Exemple D", "Développeur Node", "https://example.com/offre-4",
-             "refus", "2026-10-10", "Donnée fictive."),
+            {"entreprise": "Entreprise Exemple A", "poste": "Développeur web",
+             "technologies": "HTML, CSS, JavaScript", "lien": "https://example.com/offre-1",
+             "statut": "postule", "date_candidature": "2026-10-20",
+             "notes": "Donnée fictive."},
+            {"entreprise": "Entreprise Exemple B", "poste": "Développeur Python",
+             "technologies": "Python, Flask, SQL", "lien": "https://example.com/offre-2",
+             "statut": "entretien", "date_candidature": "2026-10-22",
+             "notes": "Donnée fictive. Entretien à préparer."},
+            {"entreprise": "Entreprise Exemple C", "poste": "Intégrateur",
+             "technologies": "HTML, CSS", "statut": "a_postuler"},
+            {"entreprise": "Entreprise Exemple D", "poste": "Développeur Node",
+             "technologies": "Node.js, Vue.js, PostgreSQL",
+             "lien": "https://example.com/offre-4", "statut": "refus",
+             "date_candidature": "2026-10-10", "notes": "Donnée fictive."},
         ]
-        for entreprise, poste, lien, statut, date_candidature, notes in exemples:
-            ajouter(entreprise, poste, lien, statut, date_candidature, notes)
+        for exemple in exemples:
+            # ** "déballe" le dictionnaire : ajouter(entreprise=..., poste=..., ...)
+            ajouter(**exemple)
         print(f"{len(exemples)} candidatures fictives ajoutées.")
 
     return app

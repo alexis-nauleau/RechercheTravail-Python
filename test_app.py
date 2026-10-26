@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from app import create_app
-from candidatures import ajouter, lister
+from candidatures import ajouter, lister, separer_technologies
 
 
 class BaseTest(unittest.TestCase):
@@ -68,6 +68,48 @@ class TestModele(BaseTest):
         # La requête paramétrée traite ces textes comme des DONNÉES : la table existe encore
         self.assertEqual(entreprises, {"L'Oréal", piege})
 
+    # ---- Technologies ----
+
+    def test_technologies_nettoyees(self):
+        # Espaces en trop, vides, doublon (Python / python) : tout est normalisé
+        with self.app.app_context():
+            ajouter("Alpha SA", "Développeur", technologies="Python,  Flask , python, ,SQL")
+            ligne = lister()[0]
+        self.assertEqual(ligne["technologies"], "Python, Flask, SQL")
+
+    def test_technologies_facultatives(self):
+        with self.app.app_context():
+            ajouter("Alpha SA", "Développeur")  # sans technologies
+            ajouter("Beta SARL", "Développeur", technologies="  , ,  ")  # que des vides
+            lignes = lister()
+        self.assertEqual([ligne["technologies"] for ligne in lignes], [None, None])
+
+    def test_accepte_dix_technologies_pas_onze(self):
+        dix = ",".join(f"T{i}" for i in range(10))
+        onze = ",".join(f"T{i}" for i in range(11))
+        with self.app.app_context():
+            ajouter("Alpha SA", "Développeur", technologies=dix)
+            with self.assertRaises(ValueError):
+                ajouter("Beta SARL", "Développeur", technologies=onze)
+            self.assertEqual(len(lister()), 1)  # la 2e n'a pas été enregistrée
+
+    def test_refuse_une_technologie_trop_longue(self):
+        with self.app.app_context():
+            ajouter("Alpha SA", "Développeur", technologies="a" * 30)  # limite : OK
+            with self.assertRaises(ValueError):
+                ajouter("Beta SARL", "Développeur", technologies="a" * 31)
+
+    def test_refuse_technologies_qui_ne_sont_pas_un_texte(self):
+        with self.app.app_context():
+            with self.assertRaises(ValueError):
+                ajouter("Alpha SA", "Développeur", technologies=["Python", "Flask"])
+
+    def test_separer_technologies(self):
+        self.assertEqual(separer_technologies("Python, Flask, SQL"),
+                         ["Python", "Flask", "SQL"])
+        self.assertEqual(separer_technologies(None), [])
+        self.assertEqual(separer_technologies(""), [])
+
 
 class TestPages(BaseTest):
     def test_accueil_vide(self):
@@ -109,6 +151,20 @@ class TestPages(BaseTest):
         # Un statut inconnu est ignoré : on affiche tout, sans erreur
         self.assertIn("Alpha SA", html)
         self.assertIn("Beta SARL", html)
+
+    def test_technologies_affichees_en_pastilles(self):
+        with self.app.app_context():
+            ajouter("Alpha SA", "Développeur", technologies="Python, Flask")
+        html = self.client.get("/").get_data(as_text=True)
+        self.assertIn('class="pastille">Python</span>', html)
+        self.assertIn('class="pastille">Flask</span>', html)
+
+    def test_technologies_neutralisent_le_html(self):
+        with self.app.app_context():
+            ajouter("Alpha SA", "Développeur", technologies="<script>alert(1)</script>")
+        html = self.client.get("/").get_data(as_text=True)
+        self.assertNotIn("<script>alert(1)</script>", html)
+        self.assertIn("&lt;script&gt;", html)
 
 
 if __name__ == "__main__":
